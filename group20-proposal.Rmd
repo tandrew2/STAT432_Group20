@@ -108,3 +108,8 @@ wine_pred = predict(wine_lm_mod, newdata = wine_tst)
 head(wine_pred, 10)
 ```
 
+
+```{r}
+x = "testing"
+```
+
