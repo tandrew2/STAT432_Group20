@@ -111,5 +111,6 @@ head(wine_pred, 10)
 
 ```{r}
 x = "testing"
+y = "hi"
 ```
 
