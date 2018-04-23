@@ -1,0 +1,110 @@
+---
+title: 'STAT 432 Group Project'
+subtitle: 'Best Wine Ever Company: How good is the wine?'
+author: "Group 20 | Theodore Andrew (tandrew2) | Alicia Lo (tlo8) | Sumit Patel (snpatel5)"
+output: 
+  html_document: 
+    theme: simplex
+---
+
+
+```{r include = FALSE}
+# general
+library(MASS)
+library(caret)
+library(tidyverse)
+library(knitr)
+library(kableExtra)
+library(mlbench)
+
+# specific
+library(ISLR)
+library(ellipse)
+library(randomForest)
+library(gbm)
+library(glmnet)
+library(rpart)
+library(rpart.plot)
+library(ggplot2)
+```
+
+```{r include = FALSE}
+wine = read.csv("wine.csv")
+```
+
+```{r include = FALSE}
+# Test-Split the data
+set.seed(42)
+wine_idx = createDataPartition(wine$quality, p = 0.75, list = FALSE)
+wine_trn = wine[wine_idx,]
+wine_tst = wine[-wine_idx,]
+```
+
+## Background
+
+During our time in University of Illinois at Urbana-Champaign, we usually drink wine every week even until now. Because of that, we plan to open a wine bar after we graduate. We already have a place to start our bar and it will open in 3 months. However, we still need to analyze the quality of wine, so that we can provide wine with the best quality for our customers. Therefore, since we all have a statistical background, we plan to apply statistical learning methods that we have learned to choose the best model that can analyze the wine quality.
+
+
+## Dataset
+
+To start with, we decide to choose wine dataset from [this website](`http://archive.ics.uci.edu/ml/datasets/Wine+Quality`) to be analyzed. This dataset contains red and white vinho verde wine samples, from the north of Portugal. The dataset records information from different physicochemical tests done on the wine. We want to be able to use the different attributes recorded for wine and predict the quality of the wine on a scale of 1 to 10. This dataset includes 13 variables: 
+
+- fixed.acidity
+
+- volatile.acidity
+
+- citric.acid
+
+- residual.sugar
+
+- chlorides
+
+- free.sulfur.dioxide 
+
+- total.sulfur.dioxide 
+
+- density
+
+- pH
+
+- sulfates
+
+- alcohol
+
+- quality 
+
+- category
+
+The dataset contains 6497 observations, with 1599 red wine observations and 4898 white wine observations. All variables are numeric variables except **category** which is the only factor variable. Variable **quality** ranges from 0 to 10 and will be the response for our **regression** prediction. 
+
+Fixed acidity in wine includes tartaric, malic, citric, and succinic acid. Volatile acidity in wine includes acetic acid, lactic, formic, butyric, and propionic acids. The unit of acidity is grams per liter (g/L). The density of wine is calculated by the mass of wine over the volume of wine, and the unit is grams per milliliter (g/ml). The percentage of residual sugar in wine is the sugar mass divided by the volume of wine, so a wine with 2\% residual sugar contains 20 grams of sugar in a liter of wine. The unit of chloride concentration is grams per liter (g/L). Sulfur dioxide is added to wine as a preservative to slow down the oxidation process and free sulfur dioxide is the sulfur dioxide that are available to react in the wine. The unit of sulfur dioxide is milligrams per liter (mg/L). Sulfates are added to wine in powder form, and the unit of sulfates is in grams per liter. The alcohol concentration of wine is in percentage of alcohol by volume. 
+
+
+## Evidence
+
+This is the evidence that data can be loaded into `R`. We will show the first 10 values of the response variable.
+
+```{r}
+head(wine$quality, 10)
+```
+
+Below is a plot of the relationship between **residual.sugar** and **quality**, to help readers better understand the dataset.
+
+```{r echo = FALSE, fig.align = "center", fig.height = 7, fig.width = 10, message = FALSE, warning = FALSE}
+wine_plot = ggplot(wine) + geom_point(aes(x = residual.sugar, y = quality), size = 0.3) 
+# + facet_wrap(~quality)
+
+wine_plot
+```
+
+Based on the plot, we see the distribution of sugar level of wine with different quality. The wine with average quality (5 - 8) have similar sugar levels. However, if we look at the wine with best quality, they do not have high sugar level, meaning that to provide higher quality, we will likely need to decrease our sugar level into acceptable amount.
+
+This is the evidence that the data can be modeled in `R`. We will be using **regression** to analyze our data. We will show the first 10 values of the predicted values from test wine dataset.
+
+```{r echo = FALSE, warning = FALSE}
+# Linear Model fit for evidence that the data can be modeled in R
+wine_lm_mod = lm(quality ~ ., data = wine_trn)
+wine_pred = predict(wine_lm_mod, newdata = wine_tst)
+head(wine_pred, 10)
+```
+
