@@ -108,9 +108,25 @@ wine_pred = predict(wine_lm_mod, newdata = wine_tst)
 head(wine_pred, 10)
 ```
 
+```{r}
+#histogram(wine_trn$quality)
+ggplot(wine_trn, aes(quality)) + geom_histogram()
+```
+
+```{r, echo = FALSE, fig.height = 10, fig.width = 10}
+theme1 = trellis.par.get()
+theme1$plot.symbol$col = rgb(.2, .2, .2, .4)
+theme1$plot.symbol$pch = 16
+theme1$plot.line$col = rgb(1, 0, 0, .7)
+theme1$plot.line$lwd = 2
+trellis.par.set(theme1)
+featurePlot(x = wine_trn[, c(3:13)], y = wine_trn$quality, plot = "scatter")
+```
 
 ```{r}
-x = "testing"
-y = "hi"
+wine_boost = gbm(quality ~ . - X.1 - X, data = wine_trn, distribution = "gaussian",
+                n.trees = 5000, interaction.depth = 4, shrinkage = 0.01)
+summary(wine_boost)
 ```
+
 
