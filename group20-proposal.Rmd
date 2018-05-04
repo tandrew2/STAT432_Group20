@@ -26,10 +26,12 @@ library(glmnet)
 library(rpart)
 library(rpart.plot)
 library(ggplot2)
+library(faraway)
 ```
 
 ```{r include = FALSE}
 wine = read.csv("wine.csv")
+wine = wine[, -c(1, 2)]
 ```
 
 ```{r include = FALSE}
@@ -120,13 +122,135 @@ theme1$plot.symbol$pch = 16
 theme1$plot.line$col = rgb(1, 0, 0, .7)
 theme1$plot.line$lwd = 2
 trellis.par.set(theme1)
-featurePlot(x = wine_trn[, c(3:13)], y = wine_trn$quality, plot = "scatter")
+featurePlot(x = wine_trn[, c(1:13)], y = wine_trn$quality, plot = "scatter")
 ```
 
 ```{r}
-wine_boost = gbm(quality ~ . - X.1 - X, data = wine_trn, distribution = "gaussian",
+wine_boost = gbm(quality ~ ., data = wine_trn, distribution = "gaussian",
                 n.trees = 5000, interaction.depth = 4, shrinkage = 0.01)
 summary(wine_boost)
 ```
+
+```{r}
+rf_1 = randomForest(quality ~ . - category, wine_trn)
+```
+
+```{r}
+calc_rmse = function(actual, predicted) {
+  sqrt(mean((actual - predicted) ^ 2))
+}
+```
+
+```{r}
+calc_rmse(wine_tst$quality, predict(rf_1, wine_tst))
+calc_rmse(wine_trn$quality, predict(rf_1, wine_trn))
+```
+
+```{r}
+class_glm_1 = glm(category ~ . - quality, family = "binomial", wine_trn)
+```
+
+```{r}
+get_pred_glm = function(mod, data, res = "y", pos = "Red", neg = "White", cut = 0.9) {
+  probs = predict(mod, newdata = data, type = "response")
+  ifelse(probs > cut, pos, neg)
+}
+
+pred_glm_1 = factor(get_pred_glm(class_glm_1, wine_tst))
+
+accuracy = function(actual, predicted) {
+  mean(actual == predicted)
+}
+
+accuracy(wine_tst$category, pred_glm_1)
+```
+
+```{r}
+class_lda_1 = lda(category ~ . - quality, wine_trn)
+pred_lda_1 = predict(class_lda_1, wine_tst)
+accuracy(wine_tst$category, pred_lda_1$class)
+```
+```{r}
+class_qda_1 = qda(category ~ . - quality, wine_trn)
+class_rda_1 = rda(category ~ . - quality, wine_trn)
+```
+
+```{r}
+sim_rda_mod = train(
+  category ~ . - quality,
+  data = wine_trn,
+  trControl = trainControl(method = "cv", number = 10),
+  method = "rda"
+)
+
+pred_rda_1 = predict(sim_rda_mod, wine_tst)
+accuracy(wine_tst$category, pred_rda_1)
+```
+
+```{r}
+sim_nb_mod = train(
+  category ~ . - quality,
+  data = wine_trn,
+  trControl = trainControl(method = "cv", number = 10),
+  method = "nb"
+)
+
+pred_nb_1 = predict(sim_nb_mod, wine_tst)
+accuracy(wine_tst$category, pred_nb_1)
+```
+
+```{r}
+sim_rf_mod = train(
+  category ~ . - quality,
+  data = wine_trn,
+  trControl = trainControl(method = "cv", number = 10),
+  method = "rf"
+)
+
+pred_rf_1 = predict(sim_rf_mod, wine_tst)
+accuracy(wine_tst$category, pred_rf_1)
+```
+```{r}
+sim_rf_mod_oob = train(
+  category ~ . - quality,
+  data = wine_trn,
+  trControl = trainControl(method = "oob", number = 10),
+  method = "rf"
+)
+
+pred_rf_oob = predict(sim_rf_mod_oob, wine_tst)
+accuracy(wine_tst$category, pred_rf_oob)
+```
+
+
+```{r}
+sim_tree_mod = train(
+  category ~ . - quality,
+  data = wine_trn,
+  trControl = trainControl(method = "cv", number = 10),
+  method = "rpart"
+)
+
+pred_tree_1 = predict(sim_tree_mod, wine_tst)
+accuracy(wine_tst$category, pred_tree_1)
+```
+
+
+
+```{r}
+sim_qda_mod = train(
+  category ~ . - quality,
+  data = wine_trn,
+  trControl = trainControl(method = "cv", number = 10),
+  method = "qda"
+)
+```
+
+
+
+
+
+
+
 
 
