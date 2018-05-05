@@ -1,0 +1,134 @@
+---
+title: "regression"
+output: html_document
+---
+
+```{r include = FALSE}
+wine = read.csv("wine.csv")
+wine = wine[, -c(1, 2)]
+```
+
+```{r include = FALSE}
+# Test-Split the data
+set.seed(42)
+wine_idx = createDataPartition(wine$quality, p = 0.75, list = FALSE)
+wine_idx = sample(wine_idx)
+wine_trn = wine[wine_idx,]
+wine_tst = wine[-wine_idx,]
+wine_tst = wine_tst[sample(nrow(wine_tst)),]
+```
+
+```{r}
+calc_rmse = function(actual, predicted) {
+  sqrt(mean((actual - predicted) ^ 2))
+}
+```
+
+```{r}
+set.seed(1753)
+sim_lm_mod = train(
+  quality ~ .,
+  data = wine_trn,
+  trControl = trainControl(method = "cv", number = 10),
+  method = "lm"
+)
+
+pred_lm_1 = predict(sim_lm_mod, wine_tst)
+calc_rmse(pred_lm_1, wine_tst$quality)
+```
+
+Linear regression: 0.7533276
+
+```{r}
+set.seed(1753)
+sim_rf_mod = train(
+  quality ~ .,
+  data = wine_trn,
+  trControl = trainControl(method = "cv", number = 10),
+  method = "rf"
+)
+
+pred_rf_1 = predict(sim_rf_mod, wine_tst)
+calc_rmse(pred_rf_1, wine_tst$quality)
+```
+
+RF with CV regression: 0.6189794
+
+```{r}
+set.seed(1753)
+sim_knn_mod_scale = train(
+  quality ~ .,
+  data = wine_trn,
+  trControl = trainControl(method = "cv", number = 10),
+  preProcess = "scale",
+  method = "knn"
+)
+
+pred_knn_scale = predict(sim_knn_mod_scale, wine_tst)
+calc_rmse(pred_knn_scale, wine_tst$quality)
+```
+
+KNN with scaling regression: 0.7070494
+
+```{r}
+set.seed(1753)
+sim_knn_mod_unscale = train(
+  quality ~ .,
+  data = wine_trn,
+  trControl = trainControl(method = "cv", number = 10),
+  method = "knn"
+)
+
+pred_knn_unscale = predict(sim_knn_mod_unscale, wine_tst)
+calc_rmse(pred_knn_unscale, wine_tst$quality)
+```
+
+KNN without scaling regression: 0.7989266
+
+```{r}
+set.seed(1753)
+sim_gbm_mod = train(
+  quality ~ .,
+  data = wine_trn,
+  trControl = trainControl(method = "cv", number = 10),
+  method = "gbm",
+  verbose = FALSE
+)
+
+pred_gbm_1 = predict(sim_gbm_mod, wine_tst)
+calc_rmse(pred_gbm_1, wine_tst$quality)
+```
+
+GBM (boosted tree) regression: 0.6930828
+
+```{r}
+set.seed(1753)
+sim_glmnet_mod = train(
+  quality ~ .,
+  data = wine_trn,
+  trControl = trainControl(method = "cv", number = 10),
+  method = "glmnet"
+)
+
+pred_glmnet_1 = predict(sim_glmnet_mod, wine_tst)
+calc_rmse(pred_glmnet_1, wine_tst$quality)
+```
+
+```{r}
+set.seed(1753)
+sim_rpart_mod = train(
+  quality ~ .,
+  data = wine_trn,
+  trControl = trainControl(method = "cv", number = 10),
+  method = "rpart"
+)
+
+pred_rpart_1 = predict(sim_rpart_mod, wine_tst)
+calc_rmse(pred_rpart_1, wine_tst$quality)
+```
+
+rpart: 0.788106
+
+
+
+
