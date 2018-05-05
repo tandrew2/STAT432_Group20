@@ -68,7 +68,7 @@ wine_plot = ggplot(wine) + geom_point(aes(x = residual.sugar, y = quality), size
 wine_plot
 ```
 
-```{r}
+```{r, message = FALSE}
 #histogram(wine_trn$quality)
 ggplot(wine_trn, aes(quality)) + geom_histogram()
 ```
@@ -149,7 +149,7 @@ pred_rda_1 = predict(sim_rda_mod, wine_tst)
 accuracy(wine_tst$category, pred_rda_1)
 ```
 
-```{r}
+```{r, message = FALSE, warning = FALSE}
 sim_nb_mod = train(
   category ~ . - quality,
   data = wine_trn,
@@ -172,6 +172,7 @@ sim_rf_mod = train(
 pred_rf_1 = predict(sim_rf_mod, wine_tst)
 accuracy(wine_tst$category, pred_rf_1)
 ```
+
 ```{r}
 sim_rf_mod_oob = train(
   category ~ . - quality,
