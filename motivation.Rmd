@@ -1,0 +1,8 @@
+---
+title: "motivation"
+author: "Spring 2018 | Alicia Lo (tlo8)"
+date: "5/5/2018"
+output: html_document
+---
+
+Hiring experts to rate the quality of wine can be a huge expense for wine brewers, and it makes brewing new wine risky if brewers do not have an idea of what the outcome would be like since they will need to spend money on both the ingredients and the ratings. Therefore, we decide to analyze the wine data and make predictions with the analysis. Using the models from our analysis, brewers can predict the quality of wine based on different variables that affect wine’s quality and would be able to adjust the ingredient or conditions before actually brewing new wine and also know the predicted quality of the new wine. Brewers would not need to find experts every time they test out new wine and will also save a lot of money and time from having fewer trial and errors. 
