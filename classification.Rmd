@@ -1,0 +1,113 @@
+---
+title: "Category Classifying"
+output: html_document
+---
+
+```{r include = FALSE}
+# general
+library(MASS)
+library(caret)
+library(tidyverse)
+library(knitr)
+library(kableExtra)
+library(mlbench)
+
+# specific
+library(ISLR)
+library(ellipse)
+library(randomForest)
+library(gbm)
+library(glmnet)
+library(rpart)
+library(rpart.plot)
+library(ggplot2)
+library(faraway)
+```
+
+```{r include = FALSE}
+wine = read.csv("wine.csv")
+wine = wine[, -c(1, 2)]
+wine$quality = factor(wine$quality)
+```
+
+```{r include = FALSE}
+# Test-Split the data
+set.seed(42)
+wine_idx = createDataPartition(wine$quality, p = 0.75, list = FALSE)
+wine_idx = sample(wine_idx)
+wine_trn = wine[wine_idx,]
+wine_tst = wine[-wine_idx,]
+wine_tst = wine_tst[sample(nrow(wine_tst)),]
+```
+
+
+```{r}
+class_rf_mod = train(
+  quality ~ .,
+  data = wine_trn,
+  trControl = trainControl(method = "cv", number = 10),
+  method = "rf"
+)
+
+pred_rf_class = as.numeric(predict(class_rf_mod, wine_tst))
+calc_rmse(pred_rf_class, as.numeric(wine_tst$quality))
+```
+
+RF with CV classification: 0.647484
+
+```{r}
+class_lda_mod = train(
+  quality ~ .,
+  data = wine_trn,
+  trControl = trainControl(method = "cv", number = 10),
+  method = "lda"
+)
+
+pred_lda_class = as.numeric(predict(class_lda_mod, wine_tst))
+calc_rmse(pred_lda_class, as.numeric(wine_tst$quality))
+```
+LDA classification: 0.7891058
+
+```{r}
+class_rda_mod = train(
+  quality ~ .,
+  data = wine_trn,
+  trControl = trainControl(method = "cv", number = 10),
+  method = "rda"
+)
+
+pred_rda_class = as.numeric(predict(class_rda_mod, wine_tst))
+calc_rmse(pred_rda_class, as.numeric(wine_tst$quality))
+```
+
+RDA classification: 0.7910567
+
+```{r}
+class_nb_mod = train(
+  quality ~ .,
+  data = wine_trn,
+  trControl = trainControl(method = "cv", number = 10),
+  method = "nb"
+)
+
+pred_nb_class = as.numeric(predict(class_nb_mod, wine_tst))
+calc_rmse(pred_nb_class, as.numeric(wine_tst$quality))
+```
+
+NB classification: 0.8768147
+
+```{r}
+sim_glmnet_mod = train(
+  quality ~ .,
+  data = wine_trn,
+  trControl = trainControl(method = "cv", number = 10),
+  method = "glmnet"
+)
+
+pred_glmnet_class = as.numeric(predict(sim_glmnet_mod, wine_tst))
+calc_rmse(pred_glmnet_class, as.numeric(wine_tst$quality))
+```
+
+glmnet classification: 0.794168
+
+
