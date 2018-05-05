@@ -113,6 +113,7 @@ sim_glmnet_mod = train(
 pred_glmnet_1 = predict(sim_glmnet_mod, wine_tst)
 calc_rmse(pred_glmnet_1, wine_tst$quality)
 ```
+Elastic net regression: 0.7532769
 
 ```{r}
 set.seed(1753)
