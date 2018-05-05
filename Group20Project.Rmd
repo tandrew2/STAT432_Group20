@@ -1,0 +1,236 @@
+---
+title: 'STAT 432 Group Project'
+subtitle: 'Best Wine Ever Company: How good is the wine?'
+author: "Group 20 | Theodore Andrew (tandrew2) | Alicia Lo (tlo8) | Sumit Patel (snpatel5)"
+abstract: 'Abstract should be inserted here'
+output: 
+  html_document: 
+    theme: simplex
+    toc: yes
+---
+
+# Introduction
+
+## Goal and motivation 
+Hiring experts to rate the quality of wine can be a huge expense for wine brewers, and it makes brewing new wine risky if brewers do not have an idea of what the outcome would be like since they will need to spend money on both the ingredients and the ratings. Therefore, we decide to analyze a wine dataset and make predictions with the analysis. Using the models from our analysis, brewers can predict the quality of wine based on different variables that affect wine’s quality and would be able to adjust the ingredient or conditions before actually brewing new wine and also know the predicted quality of the new wine. Brewers would not need to find experts every time they test out new wine and will also save a lot of money and time from having fewer trial and errors.
+
+## Data
+
+We decided to analyze the wine dataset from [this website](`http://archive.ics.uci.edu/ml/datasets/Wine+Quality`). This dataset contains red and white vinho verde wine samples, from the north of Portugal. The dataset records information from different physicochemical tests done on the wine. We want to be able to use the different attributes recorded for wine and predict the quality of the wine on a scale of 1 to 10. This dataset includes 13 variables which are further explained in the data dictionary of the appendix. 
+
+The dataset contains 6497 observations, with 1599 red wine observations and 4898 white wine observations. All variables are numeric variables except **category** which is the only factor variable. Variable **quality** ranges from 0 to 10 and will be the response for our **regression** prediction. 
+
+Fixed acidity in wine includes tartaric, malic, citric, and succinic acid. Volatile acidity in wine includes acetic acid, lactic, formic, butyric, and propionic acids. The unit of acidity is grams per liter (g/L). The density of wine is calculated by the mass of wine over the volume of wine, and the unit is grams per milliliter (g/ml). The percentage of residual sugar in wine is the sugar mass divided by the volume of wine, so a wine with 2\% residual sugar contains 20 grams of sugar in a liter of wine. The unit of chloride concentration is grams per liter (g/L). Sulfur dioxide is added to wine as a preservative to slow down the oxidation process and free sulfur dioxide is the sulfur dioxide that are available to react in the wine. The unit of sulfur dioxide is milligrams per liter (mg/L). Sulfates are added to wine in powder form, and the unit of sulfates is in grams per liter. The alcohol concentration of wine is in percentage of alcohol by volume. 
+
+## EDA
+
+```{r include = FALSE}
+# general
+library(MASS)
+library(caret)
+library(tidyverse)
+library(knitr)
+library(kableExtra)
+library(mlbench)
+
+# specific
+library(ISLR)
+library(ellipse)
+library(randomForest)
+library(gbm)
+library(glmnet)
+library(rpart)
+library(rpart.plot)
+library(ggplot2)
+library(faraway)
+library(klaR)
+```
+
+```{r include = FALSE}
+wine = read.csv("wine.csv")
+wine = wine[, -c(1, 2)]
+```
+
+```{r include = FALSE}
+# Test-Split the data
+set.seed(42)
+wine_idx = createDataPartition(wine$quality, p = 0.75, list = FALSE)
+wine_trn = wine[wine_idx,]
+wine_tst = wine[-wine_idx,]
+```
+
+Below is a plot of the relationship between **residual.sugar** and **quality**, to help readers better understand the dataset.
+
+```{r echo = FALSE, fig.align = "center", fig.height = 7, fig.width = 10, message = FALSE, warning = FALSE}
+wine_plot = ggplot(wine) + geom_point(aes(x = residual.sugar, y = quality), size = 0.3) 
+# + facet_wrap(~quality)
+
+wine_plot
+```
+
+```{r, message = FALSE}
+#histogram(wine_trn$quality)
+ggplot(wine_trn, aes(quality)) + geom_histogram()
+```
+
+
+```{r}
+wine_boost = gbm(quality ~ ., data = wine_trn, distribution = "gaussian",
+                n.trees = 5000, interaction.depth = 4, shrinkage = 0.01)
+summary(wine_boost)
+```
+
+Based on the plot, we see the distribution of sugar level of wine with different quality. The wine with average quality (5 - 8) have similar sugar levels. However, if we look at the wine with best quality, they do not have high sugar level, meaning that to provide higher quality, we will likely need to decrease our sugar level into acceptable amount.
+
+# Methods
+
+```{r include = FALSE}
+# Test-Split the data
+set.seed(42)
+wine_idx = createDataPartition(wine$quality, p = 0.75, list = FALSE)
+wine_trn = wine[wine_idx,]
+wine_tst = wine[-wine_idx,]
+```
+
+```{r}
+rf_1 = randomForest(quality ~ . - category, wine_trn)
+```
+
+```{r}
+calc_rmse = function(actual, predicted) {
+  sqrt(mean((actual - predicted) ^ 2))
+}
+```
+
+```{r}
+calc_rmse(wine_tst$quality, predict(rf_1, wine_tst))
+calc_rmse(wine_trn$quality, predict(rf_1, wine_trn))
+```
+
+```{r}
+class_glm_1 = glm(category ~ . - quality, family = "binomial", wine_trn)
+```
+
+```{r}
+get_pred_glm = function(mod, data, res = "y", pos = "Red", neg = "White", cut = 0.9) {
+  probs = predict(mod, newdata = data, type = "response")
+  ifelse(probs > cut, pos, neg)
+}
+
+pred_glm_1 = factor(get_pred_glm(class_glm_1, wine_tst))
+
+accuracy = function(actual, predicted) {
+  mean(actual == predicted)
+}
+
+accuracy(wine_tst$category, pred_glm_1)
+```
+
+```{r}
+class_lda_1 = lda(category ~ . - quality, wine_trn)
+pred_lda_1 = predict(class_lda_1, wine_tst)
+accuracy(wine_tst$category, pred_lda_1$class)
+```
+
+```{r}
+class_qda_1 = qda(category ~ . - quality, wine_trn)
+class_rda_1 = rda(category ~ . - quality, wine_trn)
+```
+
+```{r}
+sim_rda_mod = train(
+  category ~ . - quality,
+  data = wine_trn,
+  trControl = trainControl(method = "cv", number = 10),
+  method = "rda"
+)
+
+pred_rda_1 = predict(sim_rda_mod, wine_tst)
+accuracy(wine_tst$category, pred_rda_1)
+```
+
+```{r, message = FALSE, warning = FALSE}
+sim_nb_mod = train(
+  category ~ . - quality,
+  data = wine_trn,
+  trControl = trainControl(method = "cv", number = 10),
+  method = "nb"
+)
+
+pred_nb_1 = predict(sim_nb_mod, wine_tst)
+accuracy(wine_tst$category, pred_nb_1)
+```
+
+```{r}
+sim_rf_mod = train(
+  category ~ . - quality,
+  data = wine_trn,
+  trControl = trainControl(method = "cv", number = 10),
+  method = "rf"
+)
+
+pred_rf_1 = predict(sim_rf_mod, wine_tst)
+accuracy(wine_tst$category, pred_rf_1)
+```
+
+```{r}
+sim_rf_mod_oob = train(
+  category ~ . - quality,
+  data = wine_trn,
+  trControl = trainControl(method = "oob", number = 10),
+  method = "rf"
+)
+
+pred_rf_oob = predict(sim_rf_mod_oob, wine_tst)
+accuracy(wine_tst$category, pred_rf_oob)
+```
+
+
+```{r}
+sim_tree_mod = train(
+  category ~ . - quality,
+  data = wine_trn,
+  trControl = trainControl(method = "cv", number = 10),
+  method = "rpart"
+)
+
+pred_tree_1 = predict(sim_tree_mod, wine_tst)
+accuracy(wine_tst$category, pred_tree_1)
+```
+
+
+
+```{r}
+sim_qda_mod = train(
+  category ~ . - quality,
+  data = wine_trn,
+  trControl = trainControl(method = "cv", number = 10),
+  method = "qda"
+)
+```
+
+# Results
+
+# Discussion
+
+
+# Appendix
+
+## Data Dictionary
+
+| Name          | Description     | Type  |
+| ------------- |:-------------:  | -----:|
+| fixed.acidity | most acids involved with wine or fixed or nonvolatile (do not evaporate readily) | Numeric |
+| Volatile.acidity | the amount of acetic acid in wine, which at too high of levels can lead to an unpleasant, vinegar taste | Numeric |
+| Citric.acid | found in small quantities, citric acid can add ‘freshness’ and flavor to wines | Numeric | 
+| Residual.sugar | the amount of sugar remaining after fermentation stops, it’s rare to find wines with less than 1 gram/liter and wines with greater than 45 grams/liter are considered sweet | Numeric | 
+| Chlorides | the amount of salt in the wine | Numeric |
+| Free.sulfur.dioxide | the free form of SO2 exists in equilibrium between molecular SO2 (as a dissolved gas) and bisulfite ion; it prevents microbial growth and the oxidation of wine | Numeric | 
+| Total.sulfur.dioxide | amount of free and bound forms of S02; in low concentrations, SO2 is mostly undetectable in wine, but at free SO2 concentrations over 50 ppm, SO2 becomes evident in the nose and taste of wine | Numeric | 
+| Density | the density of water is close to that of water depending on the percent alcohol and sugar content | Numeric | 
+| pH | describes how acidic or basic a wine is on a scale from 0 (very acidic) to 14 (very basic); most wines are between 3-4 on the pH scale | Numeric | 
+| Sulfates | a wine additive which can contribute to sulfur dioxide gas (S02) levels, wich acts as an antimicrobial and antioxidant | Numeric |
+| Alcohol | the percent alcohol content of the wine | Numeric | 
+| Quality | score between 0 and 10 | Integer |
+| Category | Red or White wine | Factor | 
+
