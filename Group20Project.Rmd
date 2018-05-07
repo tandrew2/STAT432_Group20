@@ -55,8 +55,10 @@ wine = wine[, -c(1, 2)]
 # Test-Split the data
 set.seed(42)
 wine_idx = createDataPartition(wine$quality, p = 0.75, list = FALSE)
+wine_idx = sample(wine_idx)
 wine_trn = wine[wine_idx,]
 wine_tst = wine[-wine_idx,]
+wine_tst = wine_tst[sample(nrow(wine_tst)),]
 ```
 
 Below is a plot of the relationship between **residual.sugar** and **quality**, to help readers better understand the dataset.
@@ -84,17 +86,78 @@ Based on the plot, we see the distribution of sugar level of wine with different
 
 # Methods
 
-```{r include = FALSE}
-# Test-Split the data
-set.seed(42)
-wine_idx = createDataPartition(wine$quality, p = 0.75, list = FALSE)
-wine_trn = wine[wine_idx,]
-wine_tst = wine[-wine_idx,]
-```
+## Classification
 
 ```{r}
-rf_1 = randomForest(quality ~ . - category, wine_trn)
+class_rf_mod = train(
+  quality ~ .,
+  data = wine_trn,
+  trControl = trainControl(method = "cv", number = 10),
+  method = "rf"
+)
+
+pred_rf_class = as.numeric(predict(class_rf_mod, wine_tst))
+calc_rmse(pred_rf_class, as.numeric(wine_tst$quality))
 ```
+
+RF with CV classification: 0.647484
+
+```{r}
+class_lda_mod = train(
+  quality ~ .,
+  data = wine_trn,
+  trControl = trainControl(method = "cv", number = 10),
+  method = "lda"
+)
+
+pred_lda_class = as.numeric(predict(class_lda_mod, wine_tst))
+calc_rmse(pred_lda_class, as.numeric(wine_tst$quality))
+```
+LDA classification: 0.7891058
+
+```{r}
+class_rda_mod = train(
+  quality ~ .,
+  data = wine_trn,
+  trControl = trainControl(method = "cv", number = 10),
+  method = "rda"
+)
+
+pred_rda_class = as.numeric(predict(class_rda_mod, wine_tst))
+calc_rmse(pred_rda_class, as.numeric(wine_tst$quality))
+```
+
+RDA classification: 0.7910567
+
+```{r}
+class_nb_mod = train(
+  quality ~ .,
+  data = wine_trn,
+  trControl = trainControl(method = "cv", number = 10),
+  method = "nb"
+)
+
+pred_nb_class = as.numeric(predict(class_nb_mod, wine_tst))
+calc_rmse(pred_nb_class, as.numeric(wine_tst$quality))
+```
+
+NB classification: 0.8768147
+
+```{r}
+sim_glmnet_mod = train(
+  quality ~ .,
+  data = wine_trn,
+  trControl = trainControl(method = "cv", number = 10),
+  method = "glmnet"
+)
+
+pred_glmnet_class = as.numeric(predict(sim_glmnet_mod, wine_tst))
+calc_rmse(pred_glmnet_class, as.numeric(wine_tst$quality))
+```
+
+glmnet classification: 0.794168
+
+## Regression
 
 ```{r}
 calc_rmse = function(actual, predicted) {
@@ -103,116 +166,155 @@ calc_rmse = function(actual, predicted) {
 ```
 
 ```{r}
-calc_rmse(wine_tst$quality, predict(rf_1, wine_tst))
-calc_rmse(wine_trn$quality, predict(rf_1, wine_trn))
-```
-
-```{r}
-class_glm_1 = glm(category ~ . - quality, family = "binomial", wine_trn)
-```
-
-```{r}
-get_pred_glm = function(mod, data, res = "y", pos = "Red", neg = "White", cut = 0.9) {
-  probs = predict(mod, newdata = data, type = "response")
-  ifelse(probs > cut, pos, neg)
-}
-
-pred_glm_1 = factor(get_pred_glm(class_glm_1, wine_tst))
-
-accuracy = function(actual, predicted) {
-  mean(actual == predicted)
-}
-
-accuracy(wine_tst$category, pred_glm_1)
-```
-
-```{r}
-class_lda_1 = lda(category ~ . - quality, wine_trn)
-pred_lda_1 = predict(class_lda_1, wine_tst)
-accuracy(wine_tst$category, pred_lda_1$class)
-```
-
-```{r}
-class_qda_1 = qda(category ~ . - quality, wine_trn)
-class_rda_1 = rda(category ~ . - quality, wine_trn)
-```
-
-```{r}
-sim_rda_mod = train(
-  category ~ . - quality,
+set.seed(1753)
+sim_lm_mod = train(
+  quality ~ .,
   data = wine_trn,
   trControl = trainControl(method = "cv", number = 10),
-  method = "rda"
+  method = "lm"
 )
 
-pred_rda_1 = predict(sim_rda_mod, wine_tst)
-accuracy(wine_tst$category, pred_rda_1)
+pred_lm_trn = predict(sim_lm_mod, wine_trn)
+lm_trn_rmse = calc_rmse(pred_lm_trn, wine_trn$quality)
+
+pred_lm = predict(sim_lm_mod, wine_tst)
+lm_rmse = calc_rmse(pred_lm, wine_tst$quality)
 ```
 
-```{r, message = FALSE, warning = FALSE}
-sim_nb_mod = train(
-  category ~ . - quality,
-  data = wine_trn,
-  trControl = trainControl(method = "cv", number = 10),
-  method = "nb"
-)
-
-pred_nb_1 = predict(sim_nb_mod, wine_tst)
-accuracy(wine_tst$category, pred_nb_1)
-```
+Linear regression: 0.7533276
 
 ```{r}
+set.seed(1753)
 sim_rf_mod = train(
-  category ~ . - quality,
+  quality ~ .,
   data = wine_trn,
   trControl = trainControl(method = "cv", number = 10),
   method = "rf"
 )
 
-pred_rf_1 = predict(sim_rf_mod, wine_tst)
-accuracy(wine_tst$category, pred_rf_1)
+pred_rf_trn = predict(sim_rf_mod, wine_trn)
+rf_trn_rmse = calc_rmse(pred_rf_trn, wine_trn$quality)
+
+pred_rf = predict(sim_rf_mod, wine_tst)
+rf_rmse = calc_rmse(pred_rf, wine_tst$quality)
 ```
 
+RF with CV regression: 0.6189794
+
 ```{r}
-sim_rf_mod_oob = train(
-  category ~ . - quality,
+set.seed(1753)
+sim_knn_mod_scale = train(
+  quality ~ .,
   data = wine_trn,
-  trControl = trainControl(method = "oob", number = 10),
-  method = "rf"
+  trControl = trainControl(method = "cv", number = 10),
+  preProcess = "scale",
+  method = "knn"
 )
 
-pred_rf_oob = predict(sim_rf_mod_oob, wine_tst)
-accuracy(wine_tst$category, pred_rf_oob)
+
+pred_knn_s_trn = predict(sim_knn_mod_scale, wine_trn)
+knn_s_trn_rmse = calc_rmse(pred_knn_s_trn, wine_trn$quality)
+
+pred_knn_scale = predict(sim_knn_mod_scale, wine_tst)
+knn_s_rmse = calc_rmse(pred_knn_scale, wine_tst$quality)
 ```
 
+KNN with scaling regression: 0.7070494
 
 ```{r}
-sim_tree_mod = train(
-  category ~ . - quality,
+set.seed(1753)
+sim_knn_mod_unscale = train(
+  quality ~ .,
+  data = wine_trn,
+  trControl = trainControl(method = "cv", number = 10),
+  method = "knn"
+)
+
+pred_knn_us_trn = predict(sim_knn_mod_unscale, wine_trn)
+knn_us_trn_rmse = calc_rmse(pred_knn_us_trn, wine_trn$quality)
+
+pred_knn_unscale = predict(sim_knn_mod_unscale, wine_tst)
+knn_us_rmse = calc_rmse(pred_knn_unscale, wine_tst$quality)
+```
+
+KNN without scaling regression: 0.7989266
+
+```{r}
+set.seed(1753)
+sim_rpart_mod = train(
+  quality ~ .,
   data = wine_trn,
   trControl = trainControl(method = "cv", number = 10),
   method = "rpart"
 )
 
-pred_tree_1 = predict(sim_tree_mod, wine_tst)
-accuracy(wine_tst$category, pred_tree_1)
+pred_rpart_trn = predict(sim_rpart_mod, wine_trn)
+rpart_trn_rmse = calc_rmse(pred_rpart_trn, wine_trn$quality)
+
+pred_rpart = predict(sim_rpart_mod, wine_tst)
+rpart_rmse = calc_rmse(pred_rpart, wine_tst$quality)
+```
+
+rpart: 0.788106
+
+```{r}
+set.seed(1753)
+sim_gbm_mod = train(
+  quality ~ .,
+  data = wine_trn,
+  trControl = trainControl(method = "cv", number = 10),
+  method = "gbm",
+  verbose = FALSE
+)
+
+pred_gbm_trn = predict(sim_gbm_mod, wine_trn)
+gbm_trn_rmse = calc_rmse(pred_gbm_trn, wine_trn$quality)
+
+pred_gbm = predict(sim_gbm_mod, wine_tst)
+gbm_rmse = calc_rmse(pred_gbm, wine_tst$quality)
+```
+
+GBM (boosted tree) regression: 0.6930828
+
+```{r}
+set.seed(1753)
+sim_glmnet_mod = train(
+  quality ~ .,
+  data = wine_trn,
+  trControl = trainControl(method = "cv", number = 10),
+  method = "glmnet"
+)
+
+
+pred_glmnet_trn = predict(sim_glmnet_mod, wine_trn)
+glmnet_trn_rmse = calc_rmse(pred_glmnet_trn, wine_trn$quality)
+
+pred_glmnet = predict(sim_glmnet_mod, wine_tst)
+glmnet_rmse = calc_rmse(pred_glmnet, wine_tst$quality)
+```
+
+Elastic net regression: 0.7532769
+
+```{r}
+tst_rmse = c(lm_rmse, rf_rmse, knn_s_rmse, knn_us_rmse, rpart_rmse, gbm_rmse, glmnet_rmse)
+trn_rmse = c(lm_trn_rmse, rf_trn_rmse, knn_s_trn_rmse, knn_us_trn_rmse, rpart_trn_rmse, gbm_trn_rmse, glmnet_trn_rmse)
+tune = c(NA, sim_rf_mod$bestTune$mtry, sim_knn_mod_scale$bestTune$k, sim_knn_mod_unscale$bestTune$k, sim_rpart_mod$bestTune$cp, sim_gbm_mod$bestTune$shrinkage, sim_glmnet_mod$bestTune$alpha)
 ```
 
 
-
 ```{r}
-sim_qda_mod = train(
-  category ~ . - quality,
-  data = wine_trn,
-  trControl = trainControl(method = "cv", number = 10),
-  method = "qda"
+regression_results = data.frame(
+  mod = c("Linear Regression", "Random Forest", "KNN w/ Scaling", "KNN w/o Scaling", "Tree", "Boosted Tree", "Elastic Net"),
+  trn_rmse = trn_rmse,
+  tst_rmse = tst_rmse
 )
+colnames(regression_results) = c("Model Type", "Train RMSE", "Test RMSE")
+kable_styling(kable(regression_results, format = "html", digits = 5), full_width = FALSE)
 ```
 
 # Results
 
 # Discussion
-
 
 # Appendix
 
