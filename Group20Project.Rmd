@@ -302,7 +302,7 @@ set.seed(1753)
 sim_rf_mod = train(
   quality ~ .,
   data = wine_trn,
-  trControl = trainControl(method = "cv", number = 10),
+  trControl = trainControl(method = "oob", number = 10),
   method = "rf"
 )
 ```
@@ -317,7 +317,6 @@ sim_knn_mod_scale = train(
   preProcess = "scale",
   method = "knn"
 )
-
 ```
 
 ```{r}
@@ -331,7 +330,7 @@ sim_knn_mod_unscale = train(
 ```
 
 ### Tree
-```{r}
+```{r, message = FALSE, warning = FALSE}
 set.seed(1753)
 sim_rpart_mod = train(
   quality ~ .,
@@ -392,10 +391,11 @@ kable_styling(kable(class_summary, format = "html", main = "Classification Testi
 
 ```{r, echo = FALSE}
 reg_mod = list(sim_lm_mod, sim_rf_mod, sim_knn_mod_scale, sim_knn_mod_unscale, sim_rpart_mod, sim_gbm_mod, sim_glmnet_mod)
+trn_pred = lapply(reg_mod, predict, wine_trn)
 tst_pred = lapply(reg_mod, predict, wine_tst)
 
-trn_rmse = c(sim_lm_mod$resample$RMSE, sim_rf_mod$resample$RMSE, sim_knn_mod_scale$resample$RMSE, sim_knn_mod_unscale$resample$RMSE, sim_rpart_mod$resample$RMSE, sim_gbm_mod$resample$RMSE, sim_glmnet_mod$resample$RMSE)
-tst_rmse - sapply(tst_pred, calc_rmse, actual = wine_tst$quality)
+trn_rmse = sapply(trn_pred, calc_rmse, actual = wine_trn$quality)
+tst_rmse = sapply(tst_pred, calc_rmse, actual = wine_tst$quality)
 ```
 
 ```{r, echo = FALSE}
@@ -408,8 +408,11 @@ colnames(regression_results) = c("Model Type", "Train RMSE", "Test RMSE")
 kable_styling(kable(regression_results, format = "html", digits = 5), full_width = FALSE)
 ```
 
+Based on the table above, The random forest model gives us the lowest RMSE, meaning that it is the most accurate model among all the ones we fit.
 
 # Discussion
+
+
 
 # Appendix
 
