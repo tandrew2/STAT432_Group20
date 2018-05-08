@@ -1,0 +1,418 @@
+---
+title: 'STAT 432 Group Project'
+subtitle: 'Best Wine Ever Company: How good is the wine?'
+author: "Group 20 | Theodore Andrew (tandrew2) | Alicia Lo (tlo8) | Sumit Patel (snpatel5)"
+abstract: 'Finding the best wine can be difficult and expensive so we wanted to find out what are the best factors wine can have so brewers can spend less money and time on paying wine tasters to see if the wine they create is good or not. In order to accomplish this, we tried to find the best statistical model to accurately make predictions on the quality of wine based on different features and ingredients wines have with previously recorded data. We found that a random forest statistical model is predicting the quality very well. Wine brewers can use this model to see what ingredients and qualities high quality wines contain and produce similar wine to them, while eliminating the need to hire wine tasters to save a lot of time and money.'
+output:
+  html_document: 
+    theme: simplex
+    toc: yes
+---
+
+```{r include = FALSE}
+# general
+library(MASS)
+library(caret)
+library(tidyverse)
+library(knitr)
+library(kableExtra)
+library(mlbench)
+
+# specific
+library(ISLR)
+library(ellipse)
+library(randomForest)
+library(gbm)
+library(glmnet)
+library(rpart)
+library(rpart.plot)
+library(ggplot2)
+library(faraway)
+library(klaR)
+```
+
+```{r include = FALSE}
+wine = read.csv("wine.csv")
+wine = wine[, -c(1, 2)]
+```
+
+```{r include = FALSE}
+# Test-Split the data
+set.seed(42)
+wine_idx = createDataPartition(wine$quality, p = 0.75, list = FALSE)
+wine_idx = sample(wine_idx)
+wine_trn = wine[wine_idx,]
+wine_tst = wine[-wine_idx,]
+wine_tst = wine_tst[sample(nrow(wine_tst)),]
+```
+
+# Introduction
+
+## Goal and motivation 
+Hiring experts to rate the quality of wine can be a huge expense for wine brewers, and it makes brewing new wine risky if brewers do not have an idea of what the outcome would be like since they will need to spend money on both the ingredients and the ratings. Therefore, we decide to analyze a wine dataset and make predictions with the analysis. Using the models from our analysis, brewers can predict the quality of wine based on different variables that affect wine’s quality and would be able to adjust the ingredient or conditions before actually brewing new wine and also know the predicted quality of the new wine. Brewers would not need to find experts every time they test out new wine and will also save a lot of money and time from having fewer trial and errors.
+
+## Data
+
+We decided to analyze the wine dataset from [this website](`http://archive.ics.uci.edu/ml/datasets/Wine+Quality`). This dataset contains red and white vinho verde wine samples, from the north of Portugal. The dataset records information from different physicochemical tests done on the wine. We want to be able to use the different attributes recorded for wine and predict the quality of the wine on a scale of 1 to 10. This dataset includes 13 variables which are further explained in the data dictionary of the appendix. 
+
+The dataset contains 6497 observations, with 1599 red wine observations and 4898 white wine observations. All variables are numeric variables except **category** which is the only factor variable. Variable **quality** ranges from 0 to 10 and will be the response for our prediction. 
+
+Fixed acidity in wine includes tartaric, malic, citric, and succinic acid. Volatile acidity in wine includes acetic acid, lactic, formic, butyric, and propionic acids. The unit of acidity is grams per liter (g/L). The density of wine is calculated by the mass of wine over the volume of wine, and the unit is grams per milliliter (g/ml). The percentage of residual sugar in wine is the sugar mass divided by the volume of wine, so a wine with 2\% residual sugar contains 20 grams of sugar in a liter of wine. The unit of chloride concentration is grams per liter (g/L). Sulfur dioxide is added to wine as a preservative to slow down the oxidation process and free sulfur dioxide is the sulfur dioxide that are available to react in the wine. The unit of sulfur dioxide is milligrams per liter (mg/L). Sulfates are added to wine in powder form, and the unit of sulfates is in grams per liter. The alcohol concentration of wine is in percentage of alcohol by volume. 
+
+## EDA
+
+```{r, message = FALSE, echo = FALSE}
+ggplot(wine_trn, aes(quality)) + geom_histogram()
+```
+
+Based on the histogram, we can see that most of the wine quality falls in the range from 5 to 7.
+
+# Methods
+
+## Variable selection method
+
+```{r, echo = FALSE}
+wine_boost = gbm(quality ~ ., data = wine_trn, distribution = "gaussian",
+                n.trees = 5000, interaction.depth = 4, shrinkage = 0.01)
+summary(wine_boost)
+```
+
+Using the variance influence plot, we see that `alcohol` and `volatile.acidity`have the highest influences on the response, and `category` has the lowest. Other predictors have relatively similar importance in the model.
+
+```{r include=FALSE}
+y = as.numeric(wine$quality)
+X = model.matrix(quality ~ ., wine)[, -12]
+```
+
+
+```{r}
+wine_lasso = cv.glmnet(X, y, alpha = 1)
+plot(wine_lasso)
+coef(wine_lasso, s = "lambda.1se")
+```
+
+
+## Modelling Analysis
+
+```{r}
+calc_rmse = function(actual, predicted) {
+  sqrt(mean((actual - predicted) ^ 2))
+}
+```
+
+
+### Classification
+
+Instead of calculating the accuracy of our classification models, we coerce the factor response back to numeric and calculated the RMSE since accuracy will only consider the ones that are correctly classified, but RMSE will actually tell us how close the overall prediction is from the actual quality.
+
+```{r include = FALSE}
+wine = read.csv("wine.csv")
+wine = wine[, -c(1, 2)]
+wine$quality = factor(wine$quality)
+```
+
+#### Multinomial Logistic Regression
+
+```{r message=FALSE, warning=FALSE, include=FALSE}
+wine_multi = train(quality ~ .,
+                   data = wine_trn,
+                   method = "multinom",
+                   trControl = trainControl(method = "cv", number = 5)
+                   )
+```
+
+#### KNN (without scaling)
+
+```{r}
+wine_knn_wo = train(quality ~ .,
+                    data = wine_trn,
+                    method = "knn",
+                    trControl = trainControl(method = "cv", number = 5)
+                    )
+```
+
+#### KNN (with scaling)
+
+```{r}
+wine_knn_sc = train(quality ~ .,
+                    data = wine_trn,
+                    method = "knn",
+                    trControl = trainControl(method = "cv", number = 5),
+                    preProcess = c("center", "scale")
+                    )
+```
+
+#### LDA
+
+```{r message=FALSE, warning=FALSE}
+class_lda_mod = train(
+  quality ~ .,
+  data = wine_trn,
+  trControl = trainControl(method = "cv", number = 5),
+  method = "lda"
+)
+```
+
+#### RDA
+
+```{r message=FALSE, warning=FALSE}
+class_rda_mod = train(
+  quality ~ .,
+  data = wine_trn,
+  trControl = trainControl(method = "cv", number = 5),
+  method = "rda"
+)
+```
+
+#### NB
+
+```{r message=FALSE, warning=FALSE}
+wine_nb = train(quality ~ .,
+                 data = wine_trn,
+                 method = "nb",
+                 trControl = trainControl(method = "cv", number = 5)
+                 )
+```
+
+#### Elastic Net
+
+```{r message=FALSE, warning=FALSE}
+wine_elnet = train(quality ~ .,
+                   data = wine_trn,
+                   method = "glmnet",
+                   trControl = trainControl(method = "cv", number = 5)
+                   )
+```
+
+#### Tree
+
+```{r message=FALSE, warning=FALSE, include=FALSE}
+set.seed(9034)
+wine_tree = train(quality ~ .,
+                   data = wine_trn,
+                   method = "rpart",
+                   trControl = trainControl(method = "cv", number = 5)
+                   )
+```
+
+#### RF
+
+```{r message=FALSE, warning=FALSE, include=FALSE}
+set.seed(9034)
+wine_rf = train(quality ~ .,
+                data = wine_trn,
+                method = "rf",
+                trControl = trainControl(method = "oob"),
+                importance = T
+                )
+```
+
+#### GBM
+
+```{r message=FALSE, warning=FALSE}
+set.seed(9034)
+wine_gbm = train(quality ~ .,
+                 data = wine_trn,
+                 method = "gbm",
+                 trControl = trainControl(method = "cv", number = 5),
+                 verbose = F
+                 )
+```
+
+***
+
+### Regression
+
+`lm`, `rf`, `knn (with scaling)`, `knn (without scaling)`, `rpart`, `gbm`, and `glmnet` are the models trained. Since `category` does not have a high influence like other predictors do based on the relative influence plot, we tried both keeping it in the model training and removing it. However, the models do not perform better without `category`, so we decide to keep it in the analysis. Predictions are made using the test data, and test RMSE is calculated using the predictions.
+
+```{r message=FALSE, warning=FALSE, include=FALSE}
+# Change back the factor to numeric
+wine_trn$quality = as.numeric(wine_trn$quality)
+wine_tst$quality = as.numeric(wine_tst$quality)
+```
+
+#### Linear Regression
+
+```{r message=FALSE, warning=FALSE, include=FALSE}
+set.seed(1753)
+sim_lm_mod = train(
+  quality ~ .,
+  data = wine_trn,
+  trControl = trainControl(method = "cv", number = 5),
+  method = "lm"
+)
+```
+
+#### Random Forest
+
+```{r message=FALSE, warning=FALSE, include=FALSE}
+set.seed(1753)
+sim_rf_mod = train(
+  quality ~ .,
+  data = wine_trn,
+  trControl = trainControl(method = "oob"),
+  method = "rf"
+)
+```
+
+#### KNN (with scaling)
+
+```{r message=FALSE, warning=FALSE, include=FALSE}
+set.seed(1753)
+sim_knn_mod_scale = train(
+  quality ~ .,
+  data = wine_trn,
+  trControl = trainControl(method = "cv", number = 5),
+  preProcess = "scale",
+  method = "knn"
+)
+```
+
+#### KNN (without scaling)
+```{r message=FALSE, warning=FALSE, include=FALSE}
+set.seed(1753)
+sim_knn_mod_unscale = train(
+  quality ~ .,
+  data = wine_trn,
+  trControl = trainControl(method = "cv", number = 5),
+  method = "knn"
+)
+```
+
+#### Tree
+
+```{r, message = FALSE, warning = FALSE}
+set.seed(1753)
+sim_rpart_mod = train(
+  quality ~ .,
+  data = wine_trn,
+  trControl = trainControl(method = "cv", number = 5),
+  method = "rpart"
+)
+```
+
+#### Boosted Tree
+
+```{r message=FALSE, warning=FALSE, include=FALSE}
+set.seed(1753)
+sim_gbm_mod = train(
+  quality ~ .,
+  data = wine_trn,
+  trControl = trainControl(method = "cv", number = 5),
+  method = "gbm",
+  verbose = FALSE
+)
+```
+
+#### Elastic Net
+
+```{r}
+sim_glmnet_mod = train(
+  quality ~ .,
+  data = wine_trn,
+  trControl = trainControl(method = "cv", number = 5),
+  method = "glmnet"
+)
+```
+
+# Results
+
+```{r message=FALSE, warning=FALSE, include=FALSE}
+model_list_class = list(wine_multi, wine_knn_wo, wine_knn_sc, class_lda_mod, class_rda_mod,
+                        wine_nb, wine_elnet, wine_tree, wine_rf, wine_gbm)
+
+pred_model_class = lapply(model_list_class, predict, newdata = wine_tst)
+
+for(i in 1:length(pred_model_class)){
+  pred_model_class[[i]] = as.numeric(pred_model_class[[i]])
+}
+
+rmse_tst_wine_class = sapply(pred_model_class, calc_rmse, actual = as.numeric(wine_tst$quality))
+rmse_tst_wine_class = c(NA, rmse_tst_wine_class)
+```
+
+
+```{r message=FALSE, warning=FALSE, include=FALSE}
+reg_mod = list(sim_lm_mod, sim_knn_mod_unscale, sim_knn_mod_scale,
+               sim_glmnet_mod,  sim_rpart_mod, sim_rf_mod, sim_gbm_mod)
+
+tst_pred_reg = lapply(reg_mod, predict, wine_tst)
+
+tst_rmse_reg = sapply(tst_pred_reg, calc_rmse, actual = wine_tst$quality)
+```
+
+
+```{r message=FALSE, warning=FALSE, include=FALSE}
+class_model_method = c("Multinomial Logistic Regression",
+                       "KNN (Without Scaling)",
+                       "KNN (with scaling)",
+                       "LDA",
+                       "RDA",
+                       "Naive Bayes",
+                       "Elastic Net",
+                       "Tree",
+                       "Random Forest",
+                       "Gradient Boosted Model")
+
+reg_model_method = c("Linear Regression",
+                     "KNN (Without Scaling)",
+                     "KNN (with scaling)",
+                     "Elastic Net",
+                     "Tree",
+                     "Random Forest",
+                     "Gradient Boosted Model")
+
+summary_reg = data.frame(reg_model_method, tst_rmse_reg)
+colnames(summary_reg) = c("Modelling_Method", "Testing RMSE (Regression)")
+
+summary_class = data.frame(class_model_method, rmse_tst_wine_class)
+colnames(summary_class) = c("Modelling_Method", "Testing RMSE (Classification)")
+
+whole_summary = full_join(summary_class, summary_reg, by = "Modelling_Method")
+colnames(whole_summary)[1] = "Modelling Method"
+```
+
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+kable_styling(kable(whole_summary, format = "html", digits = 4), full_width = F)
+```
+
+
+# Discussion
+
+Based on the result table, we see that random forest models perform the best in both classification and regression. The random forest model for regression performs slightly better than the classification one, and we believe it is because the predictions of regression methods can give us results with decimal points whereas the predictions of the classification methods have to be integers. In this case, regression can give us predictions with smaller error because the difference between the actual quality and the prediction can be less than 1, but unless the quality is correctly classified, the minimum error of classification would be 1. 
+
+According to the result, we can use the random forest regression model to predict the quality of wine using all variables and get an RMSE around 0.6. The smaller the RMSE, the more accurate our prediction is. Since the RMSE is smaller than 1, we think the predictions are accurate enough to provide useful information. We believe the result of the analysis is helpful for brewers to predict the quality before testing out new wine, and brewers would be able to save some money and time if they use the model to make predictions to adjust the ingredients and conditions of new wine.
+
+
+# Appendix
+
+## Data Dictionary
+
+```{r}
+data_results = data.frame(
+  var_names = c("fixed.acidity", "folatile.acidity", "citric.acid", "residual.sugar", "chlorides", "free.sulfur.dioxide", "total.sulfur.dioxide", "density", "pH", "sulfates", "alcohol", "quality", "category"),
+  descriptions = c("most acids involved with wine or fixed or nonvolatile (do not evaporate readily)", 
+                   "the amount of acetic acid in wine, which at too high of levels can lead to an unpleasant, vinegar taste",
+                   "found in small quantities, citric acid can add ‘freshness’ and flavor to wines",
+                   "the amount of sugar remaining after fermentation stops, it’s rare to find wines with less than 1 gram/liter and wines with greater than 45 grams/liter are considered sweet",
+                   "the amount of salt in the wine",
+                   "the free form of SO2 exists in equilibrium between molecular SO2 (as a dissolved gas) and bisulfite ion; it prevents microbial growth and the oxidation of wine",
+                   "amount of free and bound forms of S02; in low concentrations, SO2 is mostly undetectable in wine, but at free SO2 concentrations over 50 ppm, SO2 becomes evident in the nose and taste of wine",
+                   "the density of water is close to that of water depending on the percent alcohol and sugar content",
+                   "describes how acidic or basic a wine is on a scale from 0 (very acidic) to 14 (very basic); most wines are between 3-4 on the pH scale",
+                   "a wine additive which can contribute to sulfur dioxide gas (S02) levels, wich acts as an antimicrobial and antioxidant",
+                   "the percent alcohol content of the wine",
+                   "score between 0 and 10",
+                   "Red or White wine"
+                   ),
+  type = c("Numeric", "Numeric", "Numeric", "Numeric", "Numeric", "Numeric", "Numeric", "Numeric", "Numeric", "Numeric", "Numeric", "Integer", "Factor")
+)
+colnames(data_results) = c("Name", "Description", "Type")
+kable_styling(kable(data_results, format = "html", digits = 5), full_width = FALSE)
+```
+
+
+
+
+
