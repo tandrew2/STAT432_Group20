@@ -86,44 +86,48 @@ Based on the plot, we see the distribution of sugar level of wine with different
 
 # Methods
 
-## Classification
 
-```{r}
+```{r include = FALSE}
 wine = read.csv("wine.csv")
-wine = wine[,-c(1, 2)]
-wine$quality = as.factor(wine$quality)
+wine = wine[, -c(1, 2)]
+wine$quality = factor(wine$quality)
 ```
 
 
-```{r}
-# Test-split the data
+```{r include = FALSE}
+# Test-Split the data
 set.seed(42)
 wine_idx = createDataPartition(wine$quality, p = 0.75, list = FALSE)
+wine_idx = sample(wine_idx)
 wine_trn = wine[wine_idx,]
 wine_tst = wine[-wine_idx,]
+wine_tst = wine_tst[sample(nrow(wine_tst)),]
 ```
-
 
 ### Variable selection method
 
-
-```{r}
+```{r include=FALSE}
 y = as.numeric(wine$quality)
 X = model.matrix(quality ~ ., wine)[, -12]
+```
 
+
+```{r message=FALSE, warning=FALSE, include=FALSE}
 wine_lasso = cv.glmnet(X, y, alpha = 1)
 plot(wine_lasso)
 coef(wine_lasso, s = "lambda.1se")
 ```
 
-
 ### Modelling Analysis
 
-```{r}
+```{r message=FALSE, warning=FALSE, include=FALSE}
 calc_rmse = function(actual, predicted) {
   sqrt(mean((actual - predicted) ^ 2))
 }
 ```
+
+
+# Classification
 
 ### Multinomial Logistic Regression
 
@@ -133,39 +137,27 @@ wine_multi = train(quality ~ .,
                    method = "multinom",
                    trControl = trainControl(method = "cv", number = 5)
                    )
-
-multi_pred = predict(wine_multi, newdata = wine_tst)
-rmse_multinom = calc_rmse(actual = as.numeric(wine_tst$quality), 
-                          predicted = as.numeric(multi_pred))
 ```
 
 ### KNN (without scaling)
 
-```{r}
+```{r message=FALSE, warning=FALSE, include=FALSE}
 wine_knn_wo = train(quality ~ .,
                     data = wine_trn,
                     method = "knn",
                     trControl = trainControl(method = "cv", number = 5)
                     )
-
-pred_knn_wo = predict(wine_knn_wo, newdata = wine_tst)
-rmse_knn_wo = calc_rmse(actual = as.numeric(wine_tst$quality), 
-                        predicted = as.numeric(pred_knn_wo))
 ```
 
 ### KNN (with scaling)
 
-```{r}
+```{r message=FALSE, warning=FALSE, include=FALSE}
 wine_knn_sc = train(quality ~ .,
                     data = wine_trn,
                     method = "knn",
                     trControl = trainControl(method = "cv", number = 5),
                     preProcess = c("center", "scale")
                     )
-
-pred_knn_sc = predict(wine_knn_sc, newdata = wine_tst)
-rmse_knn_sc = calc_rmse(actual = as.numeric(wine_tst$quality), 
-                        predicted = as.numeric(pred_knn_sc))
 ```
 
 ### LDA
@@ -174,12 +166,9 @@ rmse_knn_sc = calc_rmse(actual = as.numeric(wine_tst$quality),
 class_lda_mod = train(
   quality ~ .,
   data = wine_trn,
-  trControl = trainControl(method = "cv", number = 10),
+  trControl = trainControl(method = "cv", number = 5),
   method = "lda"
 )
-
-pred_lda_class = as.numeric(predict(class_lda_mod, wine_tst))
-rmse_lda = calc_rmse(pred_lda_class, as.numeric(wine_tst$quality))
 ```
 
 ### RDA
@@ -188,12 +177,9 @@ rmse_lda = calc_rmse(pred_lda_class, as.numeric(wine_tst$quality))
 class_rda_mod = train(
   quality ~ .,
   data = wine_trn,
-  trControl = trainControl(method = "cv", number = 10),
+  trControl = trainControl(method = "cv", number = 5),
   method = "rda"
 )
-
-pred_rda_class = as.numeric(predict(class_rda_mod, wine_tst))
-rmse_rda = calc_rmse(pred_rda_class, as.numeric(wine_tst$quality))
 ```
 
 ### NB
@@ -204,9 +190,6 @@ wine_nb = train(quality ~ .,
                  method = "nb",
                  trControl = trainControl(method = "cv", number = 5)
                  )
-
-nb_pred = predict(wine_nb, newdata = wine_tst)
-rmse_nb = calc_rmse(actual = as.numeric(wine_tst$quality), predicted = as.numeric(nb_pred))
 ```
 
 ### Elastic Net
@@ -217,29 +200,22 @@ wine_elnet = train(quality ~ .,
                    method = "glmnet",
                    trControl = trainControl(method = "cv", number = 5)
                    )
-
-pred_elnet = predict(wine_elnet, newdata = wine_tst)
-rmse_elnet = calc_rmse(actual = as.numeric(wine_tst$quality),
-                       predicted = as.numeric(pred_elnet))
 ```
 
 ### Tree
 
-```{r}
+```{r message=FALSE, warning=FALSE, include=FALSE}
+set.seed(9034)
 wine_tree = train(quality ~ .,
                    data = wine_trn,
                    method = "rpart",
                    trControl = trainControl(method = "cv", number = 5)
                    )
-
-pred_tree = predict(wine_tree, newdata = wine_tst)
-rmse_tree = calc_rmse(actual = as.numeric(wine_tst$quality),
-                      predicted = as.numeric(pred_tree))
 ```
 
 ### RF
 
-```{r}
+```{r message=FALSE, warning=FALSE, include=FALSE}
 set.seed(9034)
 wine_rf = train(quality ~ .,
                 data = wine_trn,
@@ -247,9 +223,6 @@ wine_rf = train(quality ~ .,
                 trControl = trainControl(method = "oob"),
                 importance = T
                 )
-
-rf_pred = predict(wine_rf, newdata = wine_tst)
-rmse_rf = calc_rmse(actual = as.numeric(wine_tst$quality), predicted = as.numeric(rf_pred))
 ```
 
 ### GBM
@@ -262,91 +235,86 @@ wine_gbm = train(quality ~ .,
                  trControl = trainControl(method = "cv", number = 5),
                  verbose = F
                  )
-
-gbm_pred = predict(wine_gbm, newdata = wine_tst)
-rmse_gbm = calc_rmse(actual = as.numeric(wine_tst$quality), predicted = as.numeric(gbm_pred))
 ```
 
+***
 
-## Regression
+# Regression
 
-```{r include = FALSE}
-wine = read.csv("wine.csv")
-wine = wine[, -c(1, 2)]
-```
-
-```{r include = FALSE}
-# Test-Split the data
-set.seed(42)
-wine_idx = createDataPartition(wine$quality, p = 0.75, list = FALSE)
-wine_idx = sample(wine_idx)
-wine_trn = wine[wine_idx,]
-wine_tst = wine[-wine_idx,]
-wine_tst = wine_tst[sample(nrow(wine_tst)),]
+```{r message=FALSE, warning=FALSE, include=FALSE}
+# Change back the factor to numeric
+wine_trn$quality = as.numeric(wine_trn$quality)
+wine_tst$quality = as.numeric(wine_tst$quality)
 ```
 
 ### Linear Regression
-```{r}
+
+```{r message=FALSE, warning=FALSE, include=FALSE}
 set.seed(1753)
 sim_lm_mod = train(
   quality ~ .,
   data = wine_trn,
-  trControl = trainControl(method = "cv", number = 10),
+  trControl = trainControl(method = "cv", number = 5),
   method = "lm"
 )
 ```
 
 ### Random Forest
-```{r}
+
+```{r message=FALSE, warning=FALSE, include=FALSE}
 set.seed(1753)
 sim_rf_mod = train(
   quality ~ .,
   data = wine_trn,
-  trControl = trainControl(method = "cv", number = 10),
+  trControl = trainControl(method = "oob"),
   method = "rf"
 )
 ```
 
 ### KNN
-```{r}
+
+```{r message=FALSE, warning=FALSE, include=FALSE}
 set.seed(1753)
 sim_knn_mod_scale = train(
   quality ~ .,
   data = wine_trn,
-  trControl = trainControl(method = "cv", number = 10),
+  trControl = trainControl(method = "cv", number = 5),
   preProcess = "scale",
   method = "knn"
 )
-
 ```
 
-```{r}
+
+```{r message=FALSE, warning=FALSE, include=FALSE}
 set.seed(1753)
 sim_knn_mod_unscale = train(
   quality ~ .,
   data = wine_trn,
-  trControl = trainControl(method = "cv", number = 10),
+  trControl = trainControl(method = "cv", number = 5),
   method = "knn"
 )
 ```
 
 ### Tree
-```{r}
+
+```{r, message = FALSE, warning = FALSE}
 set.seed(1753)
 sim_rpart_mod = train(
   quality ~ .,
   data = wine_trn,
-  trControl = trainControl(method = "cv", number = 10),
+  trControl = trainControl(method = "cv", number = 5),
   method = "rpart"
 )
 ```
 
-```{r}
+### GBM
+
+```{r message=FALSE, warning=FALSE, include=FALSE}
 set.seed(1753)
 sim_gbm_mod = train(
   quality ~ .,
   data = wine_trn,
-  trControl = trainControl(method = "cv", number = 10),
+  trControl = trainControl(method = "cv", number = 5),
   method = "gbm",
   verbose = FALSE
 )
@@ -354,58 +322,73 @@ sim_gbm_mod = train(
 
 ### Elastic Net
 
-```{r}
+```{r message=FALSE, warning=FALSE, include=FALSE}
 sim_glmnet_mod = train(
   quality ~ .,
   data = wine_trn,
-  trControl = trainControl(method = "cv", number = 10),
+  trControl = trainControl(method = "cv", number = 5),
   method = "glmnet"
 )
 ```
 
-# Results
 
-## Classification
-```{r echo = FALSE}
-model_method = c("Multinomial Logistic Regression",
-                 "KNN without scaling",
-                 "KNN with scaling",
-                 "LDA",
-                 "RDA",
-                 "Naive Bayes",
-                 "Elastic Net",
-                 "Tree",
-                 "Random Forest",
-                 "Gradient Boosted Model"
-                 )
+```{r message=FALSE, warning=FALSE, include=FALSE}
+model_list_class = list(wine_multi, wine_knn_wo, wine_knn_sc, class_lda_mod, class_rda_mod,
+                        wine_nb, wine_elnet, wine_tree, wine_rf, wine_gbm)
 
-rmse_values = c(rmse_multinom, rmse_knn_wo, rmse_knn_sc, rmse_lda, rmse_rda, rmse_nb, 
-                rmse_elnet, rmse_tree, rmse_rf, rmse_gbm)
+pred_model_class = lapply(model_list_class, predict, newdata = wine_tst)
 
-class_summary = data.frame(model_method, rmse_values)
-colnames(class_summary) = c("Model Method", "Testing RMSE")
+for(i in 1:length(pred_model_class)){
+  pred_model_class[[i]] = as.numeric(pred_model_class[[i]])
+}
 
-kable_styling(kable(class_summary, format = "html", main = "Classification Testing RMSE", digits = 4), full_width = F)
+rmse_tst_wine_class = sapply(pred_model_class, calc_rmse, actual = as.numeric(wine_tst$quality))
 ```
 
-## Regression
 
-```{r, echo = FALSE}
-reg_mod = list(sim_lm_mod, sim_rf_mod, sim_knn_mod_scale, sim_knn_mod_unscale, sim_rpart_mod, sim_gbm_mod, sim_glmnet_mod)
-tst_pred = lapply(reg_mod, predict, wine_tst)
+```{r message=FALSE, warning=FALSE, include=FALSE}
+reg_mod = list(sim_lm_mod, sim_knn_mod_unscale, sim_knn_mod_scale,
+               sim_glmnet_mod,  sim_rpart_mod, sim_rf_mod, sim_gbm_mod)
 
-trn_rmse = c(sim_lm_mod$resample$RMSE, sim_rf_mod$resample$RMSE, sim_knn_mod_scale$resample$RMSE, sim_knn_mod_unscale$resample$RMSE, sim_rpart_mod$resample$RMSE, sim_gbm_mod$resample$RMSE, sim_glmnet_mod$resample$RMSE)
-tst_rmse - sapply(tst_pred, calc_rmse, actual = wine_tst$quality)
+tst_pred_reg = lapply(reg_mod, predict, wine_tst)
+
+tst_rmse_reg = sapply(tst_pred_reg, calc_rmse, actual = wine_tst$quality)
 ```
 
-```{r, echo = FALSE}
-regression_results = data.frame(
-  mod = c("Linear Regression", "Random Forest", "KNN w/ Scaling", "KNN w/o Scaling", "Tree", "Boosted Tree", "Elastic Net"),
-  trn_rmse = trn_rmse,
-  tst_rmse = tst_rmse
-)
-colnames(regression_results) = c("Model Type", "Train RMSE", "Test RMSE")
-kable_styling(kable(regression_results, format = "html", digits = 5), full_width = FALSE)
+
+```{r message=FALSE, warning=FALSE, include=FALSE}
+class_model_method = c("Multinomial Logistic Regression",
+                       "KNN (Without Scaling)",
+                       "KNN (with scaling)",
+                       "LDA",
+                       "RDA",
+                       "Naive Bayes",
+                       "Elastic Net",
+                       "Tree",
+                       "Random Forest",
+                       "Gradient Boosted Model")
+
+reg_model_method = c("Linear Regression",
+                     "KNN (Without Scaling)",
+                     "KNN (with scaling)",
+                     "Elastic Net",
+                     "Tree",
+                     "Random Forest",
+                     "Gradient Boosted Model")
+
+summary_reg = data.frame(reg_model_method, tst_rmse_reg)
+colnames(summary_reg) = c("Modelling_Method", "Testing RMSE (Regression)")
+
+summary_class = data.frame(class_model_method, rmse_tst_wine_class)
+colnames(summary_class) = c("Modelling_Method", "Testing RMSE (Classification)")
+
+whole_summary = full_join(summary_class, summary_reg, by = "Modelling_Method")
+colnames(whole_summary)[1] = "Modelling Method"
+```
+
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+kable_styling(kable(whole_summary, format = "html", digits = 4), full_width = F)
 ```
 
 
